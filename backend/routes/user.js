@@ -8,7 +8,10 @@ router.post('/signup',(req, res, next) => {
         ...req.body
     });
     user.save()
-        .then(() => res.status(201).json({message: 'Inscription réussie !'}))
+        .then(() => {
+            res.status(201).json({message: 'Inscription réussie !'});
+            console.log('Inscription réussie !');
+        })
         .catch(error => {
             res.status(400).json({error});
             console.log('Error !');
