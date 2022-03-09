@@ -6,11 +6,7 @@ exports.createSauce = (req, res, next) => {
     delete sauceObject._id;
     const sauce = new Sauce({
         ...sauceObject,
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`,
-        likes: 0,
-        dislikes: 0,
-        usersLiked: [''],
-        usersDisliked: ['']
+        imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
     });
     sauce.save()
         .then(() => {
@@ -60,66 +56,106 @@ exports.deleteSauce = (req, res, next) => {
 }
 
 exports.likeDislike = (req, res, next) => {
-    
-    let like = req.body.likes;
-    let userId = req.body.userId;
-    let sauceId = req.params.id;
-    console.log(req.body.likes);
 
-    Sauce.findOne({_id: sauceId})
-        .then(sauce => {
-            let hasTheUserLikedThisSauce = sauce.usersLiked.includes(userId);
-            let hasTheUserDislikedThisSauce = sauce.usersDisliked.includes(userId);
+    // Si le like dans la requete = 1
+    if (req.body.like === 1) {
+        // alors on update la sauce en incrémentant le nombre dans la base de données et on pousse dans le tableau usersLiked l'userId
+        Sauce.updateOne({_id: req.params.id }, {$inc: {likes: 1}, $push: {usersLiked: req.body.userId}})
+            .then(() => res.status(200).json({message: 'Sauce likée !'}))
+            .catch(error => res.status(400).json({error}))
+    }
+    // Ou si le like dans la requete = -1
+    else if (req.body.like === -1) {
+        // alors on update la sauce en décrémentant le nombre dans la base de données et on pousse dans le tableau usersDisliked l'userId
+        Sauce.updateOne({_id: req.params.id}, {$inc: {dislikes: 1}, $push: {usersDisliked: req.body.userId}})
+            .then(() => res.status(200).json({message: 'Sauce dislikée !'}))
+            .catch(error => res.status(400).json({ error }));
+    }
+    // Sinon (donc si like = 0) on vient chercher les données de la sauce avec son id
+    else {
+        Sauce.findOne({ _id: req.params.id })
+            // qui nous donne reponse de promesse sauce
+            .then(sauce => {
+                // si dans la le tableau des usersLiked on y trouve l'userId alors
+                if (sauce.usersLiked.includes(req.body.userId)) {
+                    // on vient retirer du tableau l'user id et décrémenter de 1 les likes
+                    Sauce.updateOne({_id: req.params.id}, {$pull: {usersLiked: req.body.userId}, $inc: {likes: -1}})
+                        .then(() => res.status(200).json({message: 'Like supprimé !'}))
+                        .catch(error => res.status(400).json({error}));
+                }
+                // Ou si dans le tableau userDisliked on trouve l'userId alors
+                else if (sauce.usersDisliked.includes(req.body.userId)) {
+                    // on vient retirer l'userID du tableau userDisliked et on vient décrémenter de 1 les dislikes
+                    Sauce.updateOne({_id: req.params.id}, {$pull: {usersDisliked: req.body.userId}, $inc: {dislikes: -1}})
+                        .then(() => res.status(200).json({message: 'Dislike supprimé !'}))
+                        .catch(error => res.status(400).json({error}));
+                }
+            })
+            .catch(error => res.status(400).json({error}));
+    }
+}
 
-            switch (like) {
-                case 1:
-                    if (hasTheUserLikedThisSauce) {
-                        console.error("L'utilisateur a déjà liké cette sauce !");
-                    }
-                    else {
-                        sauce.likes += 1;
-                        sauce.usersLiked.push(userId);
-                    }
-                    if (hasTheUserDislikedThisSauce) {
-                        console.error("L'utilisateur doit d'abord annuler son dislike !");
-                    }
-                    break;
+
+
+    // let like = req.body.like;
+    // let userId = req.body.userId;
+    // let sauceId = req.params.id;
+    // console.log(like);
+
+    // Sauce.findOne({_id: sauceId})
+    //     .then(sauce => {
+    //         let hasTheUserLikedThisSauce = sauce.usersLiked.includes(userId);
+    //         let hasTheUserDislikedThisSauce = sauce.usersDisliked.includes(userId);
+
+    //         switch (like) {
+    //             case 1:
+    //                 if (hasTheUserLikedThisSauce) {
+    //                     console.error("L'utilisateur a déjà liké cette sauce !");
+    //                 }
+    //                 else {
+    //                     sauce.likes += 1;
+    //                     sauce.usersLiked.push(userId);
+    //                 }
+    //                 if (hasTheUserDislikedThisSauce) {
+    //                     console.error("L'utilisateur doit d'abord annuler son dislike !");
+    //                 }
+    //                 break;
                 
-                case 0:
-                    if (hasTheUserLikedThisSauce) {
-                        sauce.likes -= 1;
-                        sauce.usersLiked.filter(id => id !== userId);
-                    }
-                    else {
-                        if (hasTheUserDislikedThisSauce) {
-                            sauce.dislikes -= 1;
-                            sauce.usersDisliked.filter(id => id !== userId)
-                        }
-                    }
-                break;
+    //             case 0:
+    //                 if (hasTheUserLikedThisSauce) {
+    //                     sauce.likes -= 1;
+    //                     sauce.usersLiked.filter(id => id !== userId);
+    //                 }
+    //                 else {
+    //                     if (hasTheUserDislikedThisSauce) {
+    //                         sauce.dislikes -= 1;
+    //                         sauce.usersDisliked.filter(id => id !== userId)
+    //                     }
+    //                 }
+    //             break;
                     
-                case -1:
-                    if (hasTheUserDislikedThisSauce) {
-                        console.error("L'utilisateur a déjà disliké la sauce !");
-                    }
-                    else {
-                        sauce.dislikes += 1;
-                        sauce.usersDisliked.push(userId);
-                    }
-                    if (hasTheUserLikedThisSauce) {
-                        console.error("L'utilisateur doit d'abord annuler son like !");
-                    }
-                break;
+    //             case -1:
+    //                 if (hasTheUserDislikedThisSauce) {
+    //                     console.error("L'utilisateur a déjà disliké la sauce !");
+    //                 }
+    //                 else {
+    //                     sauce.dislikes += 1;
+    //                     sauce.usersDisliked.push(userId);
+    //                 }
+    //                 if (hasTheUserLikedThisSauce) {
+    //                     console.error("L'utilisateur doit d'abord annuler son like !");
+    //                 }
+    //             break;
 
-                default:
-                    console.log('Erreur !');
-            }
+    //             default:
+    //                 console.log('Erreur !');
+    //         }
 
-            sauce.save()
-                .then(() => res.status(201).json({message: 'Statut like/dislike mis à jour !'}))
-                .catch(error => res.status(400).json({error}));
-        })
-    .catch(error => res.status(500).json({error}));
+    //         sauce.save()
+    //             .then(() => res.status(201).json({message: 'Statut like/dislike mis à jour !'}))
+    //             .catch(error => res.status(400).json({error}));
+    //     })
+    // .catch(error => res.status(500).json({error}));
 
     // switch (like) {
     //     case 1:
@@ -154,4 +190,4 @@ exports.likeDislike = (req, res, next) => {
     //     default:
     //         console.log('Pas marché');
     // }
-}
+// }
