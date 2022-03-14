@@ -1,9 +1,13 @@
 const Sauce = require('../models/Sauce');
 const fs = require('fs');
 
+// Crée une sauce basé sur le modèle 'Sauce'
 exports.createSauce = (req, res, next) => {
+    // On extrait l'objet JSON sauce de la requête
     const sauceObject = JSON.parse(req.body.sauce);
-    delete sauceObject._id;
+    // On supprime l'id naturellement généré par MongoDB
+    delete sauceObject._id; 
+    // On crée une nouvelle instance du modèle 'Sauce'
     const sauce = new Sauce({
         ...sauceObject,
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
@@ -19,19 +23,23 @@ exports.createSauce = (req, res, next) => {
         });
 };
 
+// Affiche toutes les sauces
 exports.displaySauces = (req, res, next) => {
     Sauce.find()
         .then(sauces => res.status(200).json(sauces))
         .catch(error => res.status(400).json({error}));
 }
 
+// Affiche une sauce cliqué par l'utilisateur
 exports.displaySauce = (req, res, next) => {
     Sauce.findOne({_id: req.params.id})
         .then(sauce => res.status(200).json(sauce))
         .catch(error => res.status(404).json({error}));
 }
 
+// Modifie une sauce
 exports.modifySauce = (req, res, next) => {
+    // On vérifie si l'image a été modifié avec l'opérateur ternaire (si l'image a été modifié req.file = true)
     const sauceObject = req.file ?
         {
             ...JSON.parse(req.body.sauce),
@@ -42,11 +50,24 @@ exports.modifySauce = (req, res, next) => {
         .catch(error => res.status(400).json({error}));
 }
 
+// Supprime une sauce
 exports.deleteSauce = (req, res, next) => {
+    // On cherche d'abord l'id de la sauce...
     Sauce.findOne({_id: req.params.id})
         .then(sauce => {
+            // Si la sauce n'existe pas on renvoie une erreur
+            if (!sauce) {
+                return res.status(404).json({error: new Error('Sauce non trouvée !')});
+            }
+            // Si le userId du créateur de la sauce est différent de celui qui essaye la supprimer, on renvoie une erreur
+            if (sauce.userId !== req.auth.userId) {
+                return res.status(401).json({error: new Error('Requête non autorisée !')});
+            }
+            // ...pour le récupérer dans une constante...
             const filename = sauce.imageUrl.split('/images/')[1];
+            // ...et supprimer ainsi le fichier correspondant à cet id
             fs.unlink(`images/${filename}`, () => {
+                // Une fois que c'est fait on supprime la sauce de la base de données dans le callback de fs.unlink()
                 Sauce.deleteOne({_id: req.params.id})
                     .then(() => res.status(200).json({message: 'Objet supprimé !'}))
                     .catch(error => res.status(400).json({error}));
@@ -55,8 +76,8 @@ exports.deleteSauce = (req, res, next) => {
         .catch(error => res.status(500).json({error}));
 }
 
+// Like ou dislike une sauce
 exports.likeDislike = (req, res, next) => {
-
     // Si le like dans la requete = 1
     if (req.body.like === 1) {
         // alors on update la sauce en incrémentant le nombre dans la base de données et on pousse dans le tableau usersLiked l'userId

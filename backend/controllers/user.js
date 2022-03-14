@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const User = require('../models/User');
 
+// Inscription à Piiquante (l'adresse mail et le mot de passe sont hachés avant d'être stockes dans MongoDB)
 exports.signup = (req, res, next) => {
     const hashedEmail = cryptojs.HmacSHA256(req.body.email, process.env.SECRET_CRYPTOJS_TOKEN).toString(cryptojs.enc.Base64);
     bcrypt.hash(req.body.password, 10)
@@ -20,6 +21,8 @@ exports.signup = (req, res, next) => {
         .catch(error => res.status(500).json({error}));
 };
 
+// Connexion à Piiquante (si l'adresse mail et le mot de passe sont corrects, alors on renvoie un objet JSON contenant
+// le userId et un token avec le package jwt)
 exports.login = (req, res, next) => {
     const hashedEmail = cryptojs.HmacSHA256(req.body.email, process.env.SECRET_CRYPTOJS_TOKEN).toString(cryptojs.enc.Base64);
     User.findOne({email: hashedEmail})

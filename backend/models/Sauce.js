@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// Grâce à mongoose on peut créer des schémas (ici une sauce créée par un utilisateur devra respecter ce schéma de sauce)
 const sauceSchema = mongoose.Schema({
     userId: {type: String, required: true},
     name: {type: String, required: true},
